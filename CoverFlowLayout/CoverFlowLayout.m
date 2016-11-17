@@ -10,6 +10,7 @@
 
 @implementation CoverFlowLayout
 
+static const CGFloat ZOOM_FACTOR = 0.25f;
 
 -(void)prepareLayout {
     
@@ -22,25 +23,35 @@
 
 -(NSArray<UICollectionViewLayoutAttributes *> *)layoutAttributesForElementsInRect:(CGRect)rect {
     
-    NSMutableArray *attributes = [[super layoutAttributesForElementsInRect:rect] mutableCopy];
+    NSArray* attributes = [super layoutAttributesForElementsInRect:rect];
     
-    CGRect visibleRegion;
-    visibleRegion.origin = self.collectionView.contentOffset;
-    visibleRegion.size = self.collectionView.bounds.size;
+    CGRect visibleRect;
+    visibleRect.origin = self.collectionView.contentOffset;
+    visibleRect.size = self.collectionView.bounds.size;
     
-    // Modify the layout attributes as needed here
+    float collectionViewHalfFrame = self.collectionView.frame.size.width/2.0;
     
-    for (UICollectionViewLayoutAttributes *attribute in attributes) {
-        float distance = fabs(attribute.center.x - visibleRegion.origin.x - visibleRegion.size.width / 2);
-        if (distance < self.itemSize.width / 2) {
-            attribute.alpha = 1;
-        } else {
-            attribute.alpha = (self.itemSize.width / 2) / distance;
+    for (UICollectionViewLayoutAttributes* layoutAttributes in attributes) {
+        if (CGRectIntersectsRect(layoutAttributes.frame, rect)) {
+            CGFloat distance = CGRectGetMidX(visibleRect) - layoutAttributes.center.x;
+            CGFloat normalizedDistance= distance / collectionViewHalfFrame;
+            
+            if (ABS(distance) < collectionViewHalfFrame) {
+                CGFloat zoom = 1 + ZOOM_FACTOR*(1- ABS(normalizedDistance));
+                CATransform3D rotationTransform = CATransform3DIdentity;
+                rotationTransform = CATransform3DMakeRotation(normalizedDistance * M_PI_2 *0.8, 0.0f, 1.0f, 0.0f);
+                CATransform3D zoomTransform = CATransform3DMakeScale(zoom, zoom, 1.0);
+                layoutAttributes.transform3D = CATransform3DConcat(zoomTransform, rotationTransform);
+                layoutAttributes.zIndex = ABS(normalizedDistance) * 10.0f;
+                CGFloat alpha = (1  - ABS(normalizedDistance)) + 0.1;
+                if (alpha > 1.0f) alpha = 1.0f;
+                layoutAttributes.alpha = alpha;
+            }
+            else
+            {
+                layoutAttributes.alpha = 0.0f;
+            }
         }
-        
-        attribute.transform3D = CATransform3DMakeScale(1, 10, 2);
-        attribute.transform3D = CATransform3DMakeRotation(distance / 3 * M_PI / 45, 0.25, 1.0, 0);
-        
     }
     
     return attributes;
